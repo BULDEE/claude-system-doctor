@@ -1,0 +1,14 @@
+{
+  "name": "claude-system-doctor",
+  "owner": {
+    "name": "Alexandre Mallet",
+    "url": "https://github.com/BULDEE"
+  },
+  "plugins": [
+    {
+      "name": "system-doctor",
+      "source": "./",
+      "description": "Scheduled audit and safe auto-heal for your Claude Code installation."
+    }
+  ]
+}

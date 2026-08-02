@@ -1,0 +1,9 @@
+{
+  "name": "system-doctor",
+  "description": "Scheduled audit and safe auto-heal for your Claude Code installation: cache regrowth, temp files, orphan projects, config drift, startup context. Safe-ops are archived before removal; everything risky is report-only.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Alexandre Mallet",
+    "url": "https://github.com/BULDEE"
+  }
+}
