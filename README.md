@@ -129,6 +129,14 @@ it portable to any machine without knowing anything about your setup in advance.
   deletes. All actions are taken by the skill, under the blocklist.
 - A webhook failure never fails a run.
 - If a scheduled run is missed, the next run detects the gap and says so.
+- The scheduled job runs with a scoped `--allowedTools` list rather than
+  `--dangerously-skip-permissions`. Be aware of what that still means: the job
+  can run `rm` and `tar` unattended, and what gets removed is governed by the
+  audit skill's blocklist, not by a hard sandbox. Set `dry_run: true` in the
+  config if you would rather scheduled runs only ever report.
+- The absolute path of the `claude` binary is resolved at install time, since
+  launchd and cron do not source your login shell. Set `CLAUDE_BIN` if the
+  automatic resolution fails.
 
 ## Reports
 

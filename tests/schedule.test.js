@@ -64,3 +64,29 @@ test('schedule.js daily and monthly cadences', () => {
   const monthly = runSchedule(home, ['install', '--print']);
   assert.notEqual(daily, monthly);
 });
+
+test('schedule.js bakes an absolute claude path, never a bare command', () => {
+  const { home } = buildFixture();
+  writeConfig(home, { cadence: 'weekly', hour: 9 });
+  const fakeBin = path.join(home, 'fake-claude');
+  fs.writeFileSync(fakeBin, '');
+  const out = execFileSync(process.execPath, [SCHEDULE, 'install', '--print'], {
+    env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: fakeBin },
+    encoding: 'utf8',
+  });
+  assert.ok(out.includes(fakeBin), 'resolved binary path must appear in the entry');
+  assert.ok(!/[^/\\"]claude -p/.test(out), 'must not schedule a bare `claude` command');
+});
+
+test('schedule.js scopes tool permissions instead of skipping them', () => {
+  const { home } = buildFixture();
+  writeConfig(home, { cadence: 'weekly', hour: 9 });
+  const fakeBin = path.join(home, 'fake-claude');
+  fs.writeFileSync(fakeBin, '');
+  const out = execFileSync(process.execPath, [SCHEDULE, 'install', '--print'], {
+    env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: fakeBin },
+    encoding: 'utf8',
+  });
+  assert.ok(out.includes('--allowedTools'));
+  assert.ok(!out.includes('dangerously-skip-permissions'));
+});

@@ -33,9 +33,15 @@ the scheduler, propose a calibration run.
    - `node "${CLAUDE_PLUGIN_ROOT}/scripts/schedule.js" install --print` and show
      the user what will be registered for their OS.
    - On confirmation: `node "${CLAUDE_PLUGIN_ROOT}/scripts/schedule.js" install`.
-   - Requires the `claude` CLI on PATH for the scheduled context; on macOS and
-     Linux verify with `command -v claude`, on Windows `where claude`. If
-     missing, warn and point to the docs instead of installing a broken job.
+   - The scheduler resolves the absolute path of the `claude` binary at install
+     time, because launchd and cron do not source the login shell: a bare
+     `claude` works in your terminal but not in the job. If resolution fails,
+     set `CLAUDE_BIN` to the absolute path and run setup again.
+   - The scheduled run uses a scoped `--allowedTools` list, not
+     `--dangerously-skip-permissions`. Tell the user plainly that the job can
+     run `rm` and `tar` unattended, and that what gets removed is governed by
+     the audit skill's blocklist rather than by a hard sandbox. If they are not
+     comfortable with that, set `dry_run: true` so scheduled runs only report.
 4. Propose the calibration run now: `/system-doctor:audit` (first run measures
    baselines and heals nothing). Recommend reviewing that first report before
    trusting scheduled runs.

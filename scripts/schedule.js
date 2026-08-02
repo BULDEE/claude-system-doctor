@@ -13,6 +13,20 @@ const MARKER = 'claude-system-doctor';
 const LABEL = 'com.claude.system-doctor';
 const TASK_NAME = 'ClaudeSystemDoctor';
 
+// Scoped rather than --dangerously-skip-permissions: the scheduled run gets the
+// commands the audit actually needs and nothing else.
+const ALLOWED_TOOLS = [
+  'Bash(node:*)',
+  'Bash(tar:*)',
+  'Bash(rm:*)',
+  'Bash(mkdir:*)',
+  'Bash(du:*)',
+  'Read',
+  'Write',
+  'Glob',
+  'Grep',
+];
+
 function loadConfig() {
   const file = path.join(DOCTOR_DIR, 'config.json');
   const config = JSON.parse(fs.readFileSync(file, 'utf8'));
@@ -25,8 +39,47 @@ function loadConfig() {
   return { cadence, hour };
 }
 
+const CANDIDATE_BINS =
+  process.platform === 'win32'
+    ? ['claude.cmd', 'claude.exe']
+    : [
+        path.join(HOME, '.local', 'bin', 'claude'),
+        path.join(HOME, '.claude', 'local', 'claude'),
+        '/usr/local/bin/claude',
+        '/opt/homebrew/bin/claude',
+        path.join(HOME, '.bun', 'bin', 'claude'),
+      ];
+
+// Schedulers run with a minimal PATH: launchd and cron do not source the login
+// shell, so a bare `claude` resolves on the terminal but not in the job. The
+// absolute path is resolved once, at install time, and baked into the entry.
+function resolveClaudeBinary() {
+  if (process.env.CLAUDE_BIN) return process.env.CLAUDE_BIN;
+  const locator = process.platform === 'win32' ? 'where' : 'which';
+  for (const candidate of CANDIDATE_BINS) {
+    try {
+      if (process.platform !== 'win32' && fs.existsSync(candidate)) {
+        fs.accessSync(candidate, fs.constants.X_OK);
+        return candidate;
+      }
+    } catch {}
+  }
+  try {
+    const found = execFileSync(locator, ['claude'], { encoding: 'utf8' })
+      .split('\n')
+      .map((l) => l.trim())
+      .filter(Boolean)[0];
+    if (found) return found;
+  } catch {}
+  throw new Error(
+    'claude binary not found. Install the CLI, or set CLAUDE_BIN to its absolute path and run setup again.'
+  );
+}
+
 function runCommand() {
-  return `claude -p "/system-doctor:audit" --output-format json >> "${LOG_FILE}" 2>&1`;
+  const bin = resolveClaudeBinary();
+  const allowed = ALLOWED_TOOLS.map((t) => `"${t}"`).join(' ');
+  return `"${bin}" -p "/system-doctor:audit" --allowedTools ${allowed} --output-format json >> "${LOG_FILE}" 2>&1`;
 }
 
 function darwinPlist({ cadence, hour }) {
