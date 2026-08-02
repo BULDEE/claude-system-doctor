@@ -9,11 +9,19 @@ const { buildFixture } = require('./fixture');
 
 const SCHEDULE = path.join(__dirname, '..', 'scripts', 'schedule.js');
 
-function runSchedule(home, args) {
+// CLAUDE_BIN is always set: these tests cover the generated scheduler entry,
+// not binary discovery, and CI runners have no claude CLI installed.
+function runSchedule(home, args, env = {}) {
   return execFileSync(process.execPath, [SCHEDULE, ...args], {
-    env: { ...process.env, DOCTOR_HOME: home },
+    env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: fakeBinIn(home), ...env },
     encoding: 'utf8',
   });
+}
+
+function fakeBinIn(home) {
+  const bin = path.join(home, 'fake-claude');
+  if (!fs.existsSync(bin)) fs.writeFileSync(bin, '');
+  return bin;
 }
 
 function writeConfig(home, config) {
@@ -68,25 +76,27 @@ test('schedule.js daily and monthly cadences', () => {
 test('schedule.js bakes an absolute claude path, never a bare command', () => {
   const { home } = buildFixture();
   writeConfig(home, { cadence: 'weekly', hour: 9 });
-  const fakeBin = path.join(home, 'fake-claude');
-  fs.writeFileSync(fakeBin, '');
-  const out = execFileSync(process.execPath, [SCHEDULE, 'install', '--print'], {
-    env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: fakeBin },
-    encoding: 'utf8',
-  });
-  assert.ok(out.includes(fakeBin), 'resolved binary path must appear in the entry');
+  const out = runSchedule(home, ['install', '--print']);
+  assert.ok(out.includes(fakeBinIn(home)), 'resolved binary path must appear in the entry');
   assert.ok(!/[^/\\"]claude -p/.test(out), 'must not schedule a bare `claude` command');
 });
 
 test('schedule.js scopes tool permissions instead of skipping them', () => {
   const { home } = buildFixture();
   writeConfig(home, { cadence: 'weekly', hour: 9 });
-  const fakeBin = path.join(home, 'fake-claude');
-  fs.writeFileSync(fakeBin, '');
-  const out = execFileSync(process.execPath, [SCHEDULE, 'install', '--print'], {
-    env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: fakeBin },
-    encoding: 'utf8',
-  });
+  const out = runSchedule(home, ['install', '--print']);
   assert.ok(out.includes('--allowedTools'));
   assert.ok(!out.includes('dangerously-skip-permissions'));
+});
+
+test('schedule.js fails loudly when no claude binary can be resolved', () => {
+  const { home } = buildFixture();
+  writeConfig(home, { cadence: 'weekly', hour: 9 });
+  assert.throws(() =>
+    execFileSync(process.execPath, [SCHEDULE, 'install', '--print'], {
+      env: { ...process.env, DOCTOR_HOME: home, CLAUDE_BIN: '', PATH: '' },
+      encoding: 'utf8',
+      stdio: 'pipe',
+    })
+  );
 });
