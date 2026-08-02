@@ -59,10 +59,15 @@ is fine; action is the user's call.
    baselines the user has acknowledged (config drift stays flagged until the
    user re-calibrates with `/system-doctor:audit recalibrate`, which overwrites
    the fingerprint baseline).
-6. Notify. If `config.webhook_url` is set, POST a ~10 line summary:
-   `node -e` with global `fetch`, body `{"content": "..."}` (Discord format;
-   Slack accepts `{"text": "..."}` if `config.webhook_format` is `slack`).
-   A webhook failure never fails the run: log it in the report.
+6. Notify. Write a ~10 line summary to
+   `~/.claude/doctor/reports/.last-summary.md`, then run
+   `node "${CLAUDE_PLUGIN_ROOT}/scripts/notify.js" <that file>`.
+   The script reads the webhook URL and format from the config itself, so the
+   URL never passes through a command line. Never build the POST with an inline
+   `node -e` or a raw `curl` carrying the URL: inline code is refused by the
+   permission classifier in unattended runs, and a URL on the command line is a
+   secret in your process list. If the script reports a failure, note it in the
+   report; a webhook failure never fails the run.
 
 ## Output
 
